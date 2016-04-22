@@ -1,7 +1,10 @@
 import socket, SocketServer
 import subprocess, select, struct
 import traceback
-import xml.etree.cElementTree as ET 
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import XML, fromstring, tostring
+from inspect import getmembers
+from pprint import pprint
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import *
@@ -117,14 +120,18 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             #     data = data[:pos+chlen]+repstr+data[pos+chlen+pos2:]
             #     '''
             #     print "REP", data
+            try:
+                tree = ET.ElementTree(ET.fromstring(data))
+                root = tree.getroot()
 
-            tree = ET.parse(data)
-            root = tree.getroot()
-            for message in root.findall('message'): 
-                message.setAttribute('date','100000000000')
-            
-            data = ET.tostring(root, encoding='gb2312')
-            print "REP", data
+                root.set('date','100000000000')
+                for message in root.findall('message'): 
+                    message.set('date','100000000000')
+
+                data = ET.tostring(root, encoding='utf-8')
+                print "REP", data
+            except Exception,e:
+                    traceback.print_exc()
             
             ssock.sendall(data)
         else:
