@@ -1,6 +1,7 @@
 import socket, SocketServer
 import subprocess, select, struct
 import traceback
+import xml.etree.cElementTree as ET 
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import *
@@ -97,25 +98,34 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     def xmpp(self, data, readable, csock, ssock):
         print "ORI", data
         if readable == csock:
-            if data.find("from") != -1:
-                char = 'to'
-                chlen = len(char)+2
-                repstr = "1222719705@sns"
+            # if data.find("from") != -1:
+            #     char = 'to'
+            #     chlen = len(char)+2
+            #     repstr = "1222719705@sns"
 
-                pos = data.find(char)
-                pos2 = data[pos+chlen:].find('"')
-                data = data[:pos+chlen]+repstr+data[pos+chlen+pos2:]
-                '''
+            #     pos = data.find(char)
+            #     pos2 = data[pos+chlen:].find('"')
+            #     data = data[:pos+chlen]+repstr+data[pos+chlen+pos2:]
+            #     '''
 
-                char = 'nickname'
-                chlen = len(char)+3
-                repstr = "EverMars"
+            #     char = 'nickname'
+            #     chlen = len(char)+3
+            #     repstr = "EverMars"
 
-                pos = data.find(char)
-                pos2 = data[pos+chlen:].find('"')
-                data = data[:pos+chlen]+repstr+data[pos+chlen+pos2:]
-                '''
-                print "REP", data
+            #     pos = data.find(char)
+            #     pos2 = data[pos+chlen:].find('"')
+            #     data = data[:pos+chlen]+repstr+data[pos+chlen+pos2:]
+            #     '''
+            #     print "REP", data
+
+            tree = ET.parse(data)
+            root = tree.getroot()
+            for message in root.findall('message'): 
+                message.setAttribute('date','100000000000')
+            
+            data = ET.tostring(root, encoding='gb2312')
+            print "REP", data
+            
             ssock.sendall(data)
         else:
             csock.sendall(data)
@@ -155,22 +165,39 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         ip, port = get_original_addr(csock)
         ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssock.connect((ip, port))
-
-        print "('%s', %s(%s)) Connecting ('%s', %s)"%(sip, sport, hex(sport).upper(), ip, port)
-        while 1:
-            try:
-                datalist = recv_one(csock, ssock)
-                if datalist is None:
-                    return
-                for readable, data in datalist:
-                    if data is None or data == "":
+        if(port == 5222):
+            print "('%s', %s(%s)) Connecting ('%s', %s)"%(sip, sport, hex(sport).upper(), ip, port)
+            while 1:
+                try:
+                    datalist = recv_one(csock, ssock)
+                    if datalist is None:
                         return
-                    print data
-                    self.xmpp(data, readable, csock, ssock)
+                    for readable, data in datalist:
+                        if data is None or data == "":
+                            return
+                        #print "###############begin###############"
+                        #print data
+                        #print "################end################"
+                        self.xmpp(data, readable, csock, ssock)
 
-            except Exception,e:
-                traceback.print_exc()
-                break
+                except Exception,e:
+                    traceback.print_exc()
+                    break
+        else:
+            while 1:
+                try:
+                    datalist = recv_one(csock, ssock)
+                    if datalist is None:
+                        return
+                    for readable, data in datalist:
+                        if readable == csock:
+                            ssock.sendall(data)
+                        else:
+                            csock.sendall(data)
+                            
+                except Exception,e:
+                    traceback.print_exc()
+                    break
 
 class ThreadedServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
