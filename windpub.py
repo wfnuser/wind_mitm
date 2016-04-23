@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import XML, fromstring, tostring
 from inspect import getmembers
 from pprint import pprint
+import re
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import *
@@ -58,6 +59,18 @@ def recv_one(ssock, csock):
                 ssock.close()
                 return
     return datalist
+
+def xmpp_replace(root, nodetag, attrkey, attrval):
+    root.set(attrkey,attrval)
+
+    for child in root.findall(nodetag): 
+        child.set(attrkey,attrval)
+
+    return ET.tostring(root, encoding='utf-8')
+
+def xmpp_regex_replace(data,target,replace):
+    data = re.sub('(?<='+target+'=")[\w,:,\/,\.]*(?=")',replace,data)
+    return data
 
 class GTRecord(Packet):
     name = "GeTui Record"
@@ -123,14 +136,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             try:
                 tree = ET.ElementTree(ET.fromstring(data))
                 root = tree.getroot()
-
-                root.set('date','100000000000')
-                for message in root.findall('message'): 
-                    message.set('date','100000000000')
-
-                data = ET.tostring(root, encoding='utf-8')
+                data = xmpp_replace(root,"massage","date","123123123")
                 print "REP", data
             except Exception,e:
+                try:
+                    target = 'to'
+                    replace = '456456'
+                    data = xmpp_regex_replace(data,target,replace)
+                except Exception,e:
                     traceback.print_exc()
             
             ssock.sendall(data)
